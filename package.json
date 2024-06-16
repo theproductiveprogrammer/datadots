@@ -2,7 +2,7 @@
   "name": "datadots",
   "version": "0.0.1",
   "description": "Store data records in separate JSON data \"dots\"",
-  "main": "index.js",
+  "main": "bin/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -20,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/theproductiveprogrammer/datadots/issues"
   },
-  "homepage": "https://github.com/theproductiveprogrammer/datadots#readme"
+  "homepage": "https://github.com/theproductiveprogrammer/datadots#readme",
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
 }
