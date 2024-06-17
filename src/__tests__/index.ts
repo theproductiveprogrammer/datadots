@@ -51,6 +51,28 @@ describe("setup", () => {
 		);
 	});
 
+	it("is ready if shutdown in between", () => {
+		let ready = 0;
+		dots.setup(
+			dbname2,
+			dotCfg({
+				processor: (_: DotData) => {
+					ready++;
+				},
+			})
+		);
+		dots.shutdown();
+		dots.setup(
+			dbname2,
+			dotCfg({
+				processor: (_: DotData) => {
+					ready++;
+				},
+			})
+		);
+		expect(ready).toBe(2);
+	});
+
 	const dbname3 = "/tmp/dots/3.db";
 	it("to be ready and called with data when correctly set up", () => {
 		let called = 0;

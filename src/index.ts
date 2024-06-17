@@ -47,6 +47,7 @@ export function recordFrom(o: any): Record {
 const dots = {
 	setup: (dbname: string, config: Config): void => {},
 	add: (dbname: string, record: Record): void => {},
+	shutdown: (): void => {},
 };
 
 export default dots;
