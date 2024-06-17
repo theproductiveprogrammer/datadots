@@ -1,9 +1,15 @@
-import dots from "../index";
+import dots, {
+	Config,
+	recordFrom,
+	memoryPersister,
+	justCompress,
+	DotData,
+} from "../index";
 
-function dotCfg(cfg?: any): dots.Config {
+function dotCfg(cfg?: any): Config {
 	const saveEvery = cfg?.saveEvery || 10;
-	const persister = cfg?.persister || dots.memoryPersister;
-	const processor = cfg?.processor || dots.justCompress;
+	const persister = cfg?.persister || memoryPersister();
+	const processor = cfg?.processor || justCompress;
 	return {
 		saveEvery,
 		persister,
@@ -17,7 +23,7 @@ describe("setup", () => {
 		expect(
 			dots.add(
 				dbname1,
-				dots.recordFrom({
+				recordFrom({
 					id: 1,
 				})
 			)
@@ -29,7 +35,7 @@ describe("setup", () => {
 		dots.setup(
 			dbname1,
 			dotCfg({
-				processor: (_: dots.DotData) => {
+				processor: (_: DotData) => {
 					ready = true;
 				},
 			})
@@ -40,21 +46,19 @@ describe("setup", () => {
 	const dbname2 = "/tmp/dots/2.db";
 	it("throws exception if set twice", () => {
 		dots.setup(dbname2, dotCfg());
-		expect(
-			dots
-				.setup(dbname2, dotCfg())
-				.toThrow(new Error(`${dbname2} already set up`))
+		expect(dots.setup(dbname2, dotCfg())).toThrow(
+			new Error(`${dbname2} already set up`)
 		);
 	});
 
 	const dbname3 = "/tmp/dots/3.db";
 	it("to be ready and called with data when correctly set up", () => {
 		let called = 0;
-		const ids: Array<number> = [];
+		const ids: Array<string> = [];
 		dots.setup(
 			dbname3,
 			dotCfg({
-				processor: (dotdata: dots.DotData) => {
+				processor: (dotdata: DotData) => {
 					for (let i = dotdata.saved; i < dotdata.records.length; i++) {
 						ids.push(dotdata.records[i][1]);
 					}
@@ -64,11 +68,11 @@ describe("setup", () => {
 		);
 		dots.add(
 			dbname3,
-			dots.recordFrom({
+			recordFrom({
 				id: 1,
 			})
 		);
 		expect(called).toBe(2);
-		expect(ids).toBe([1]);
+		expect(ids).toBe(["1"]);
 	});
 });
