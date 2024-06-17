@@ -20,14 +20,9 @@ function dotCfg(cfg?: any): Config {
 describe("setup", () => {
 	const dbname1 = "/tmp/dots/1.db";
 	it("throws exception if not set up", () => {
-		expect(() =>
-			dots.add(
-				dbname1,
-				recordFrom({
-					id: 1,
-				})
-			)
-		).toThrow(`${dbname1} not setup`);
+		expect(() => dots.add(dbname1, recordFrom({ id: 1 }))).toThrow(
+			`${dbname1} not setup`
+		);
 	});
 
 	it("is ready when starting with empty data", () => {
@@ -89,12 +84,7 @@ describe("setup", () => {
 				},
 			})
 		);
-		dots.add(
-			dbname4,
-			recordFrom({
-				id: 1,
-			})
-		);
+		dots.add(dbname4, recordFrom({ id: 1 }));
 		expect(called).toBe(2);
 		expect(ids).toStrictEqual(["1"]);
 		let numrecs = 0;
@@ -103,4 +93,21 @@ describe("setup", () => {
 		});
 		expect(numrecs).toBe(1);
 	});
+});
+
+describe("saving", () => {
+	const dbname = "/tmp/dots/1.db";
+	it("save after 1 second", async () => {
+		dots.setup(dbname, dotCfg({ saveEvery: 1 }));
+		dots.add(dbname, recordFrom({ id: 1 }));
+		let numsaved = 0;
+		dots.q(dbname, (dotdata) => (numsaved = dotdata.saved));
+		expect(numsaved).toBe(0);
+		await new Promise((r) => setTimeout(r, 1500));
+		dots.q(dbname, (dotdata) => (numsaved = dotdata.saved));
+		expect(numsaved).toBe(1);
+	});
+});
+afterEach(() => {
+	dots.shutdown();
 });

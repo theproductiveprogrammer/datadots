@@ -5,7 +5,7 @@ export type Config = {
 };
 
 export type Persister = {
-	save: (dotdata: DotData) => void;
+	save: (dotdata: DotData) => Promise<void>;
 	load: () => DotData;
 };
 
@@ -26,7 +26,7 @@ export function memoryPersister(): Persister {
 		saved: [] as Array<Record>,
 	};
 	return {
-		save: (dotdata: DotData) => {
+		save: async (dotdata: DotData) => {
 			mem.saved = mem.saved.concat(dotdata.records.slice(dotdata.saved));
 			dotdata.saved = mem.saved.length;
 		},
@@ -49,9 +49,23 @@ export function recordFrom(o: any): Record {
 type DotInfo = {
 	dotdata: DotData;
 	config: Config;
+	lastwrite: number;
 };
 
 let DOTS: { [key: string]: DotInfo } = {};
+let writer: any;
+
+async function write() {
+	const now = Date.now();
+	const keys = Object.keys(DOTS);
+	for (let i = 0; i < keys.length; i++) {
+		const dotinfo = DOTS[keys[i]];
+		if (!dotinfo) continue;
+		if (now - dotinfo.lastwrite < dotinfo.config.saveEvery * 1000) continue;
+		await dotinfo.config.persister.save(dotinfo.dotdata);
+	}
+	writer = setTimeout(write, 500);
+}
 
 function add(dbname: string, record: Record): void {
 	const dotinfo = DOTS[dbname];
@@ -62,14 +76,18 @@ function add(dbname: string, record: Record): void {
 
 function setup(dbname: string, config: Config): void {
 	if (DOTS[dbname]) throw new Error(`${dbname} already set up`);
+	if (!writer) writer = setTimeout(write, 500);
 	DOTS[dbname] = {
 		config,
 		dotdata: config.persister.load(),
+		lastwrite: Date.now(),
 	};
 	config.processor(DOTS[dbname].dotdata);
 }
 
 function shutdown() {
+	if (writer) clearTimeout(writer);
+	writer = null;
 	DOTS = {};
 }
 
