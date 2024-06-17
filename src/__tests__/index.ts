@@ -97,5 +97,10 @@ describe("setup", () => {
 		);
 		expect(called).toBe(2);
 		expect(ids).toStrictEqual(["1"]);
+		let numrecs = 0;
+		dots.q(dbname4, (dotdata) => {
+			numrecs = dotdata.records.length;
+		});
+		expect(numrecs).toBe(1);
 	});
 });

@@ -19,6 +19,8 @@ export type Record = Array<string>;
 
 export type Processor = (dotdata: DotData) => void;
 
+export type qCallBack = (dotdata: DotData) => void;
+
 export function memoryPersister(): Persister {
 	const mem = {
 		saved: [] as Array<Record>,
@@ -71,9 +73,16 @@ function shutdown() {
 	DOTS = {};
 }
 
+function q(dbname: string, cb: qCallBack) {
+	const dotinfo = DOTS[dbname];
+	if (!dotinfo) throw new Error(`${dbname} not setup`);
+	cb(dotinfo.dotdata);
+}
+
 const dots = {
 	setup,
 	add,
+	q,
 	shutdown,
 };
 
