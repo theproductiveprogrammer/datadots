@@ -20,14 +20,14 @@ function dotCfg(cfg?: any): Config {
 describe("setup", () => {
 	const dbname1 = "/tmp/dots/1.db";
 	it("throws exception if not set up", () => {
-		expect(
+		expect(() =>
 			dots.add(
 				dbname1,
 				recordFrom({
 					id: 1,
 				})
 			)
-		).toThrow(new Error(`${dbname1} not setup`));
+		).toThrow(`${dbname1} not setup`);
 	});
 
 	it("is ready when starting with empty data", () => {
@@ -46,15 +46,16 @@ describe("setup", () => {
 	const dbname2 = "/tmp/dots/2.db";
 	it("throws exception if set twice", () => {
 		dots.setup(dbname2, dotCfg());
-		expect(dots.setup(dbname2, dotCfg())).toThrow(
-			new Error(`${dbname2} already set up`)
+		expect(() => dots.setup(dbname2, dotCfg())).toThrow(
+			`${dbname2} already set up`
 		);
 	});
 
+	const dbname3 = "/tmp/dots/3.db";
 	it("is ready if shutdown in between", () => {
 		let ready = 0;
 		dots.setup(
-			dbname2,
+			dbname3,
 			dotCfg({
 				processor: (_: DotData) => {
 					ready++;
@@ -63,7 +64,7 @@ describe("setup", () => {
 		);
 		dots.shutdown();
 		dots.setup(
-			dbname2,
+			dbname3,
 			dotCfg({
 				processor: (_: DotData) => {
 					ready++;
@@ -73,12 +74,12 @@ describe("setup", () => {
 		expect(ready).toBe(2);
 	});
 
-	const dbname3 = "/tmp/dots/3.db";
+	const dbname4 = "/tmp/dots/4.db";
 	it("to be ready and called with data when correctly set up", () => {
 		let called = 0;
 		const ids: Array<string> = [];
 		dots.setup(
-			dbname3,
+			dbname4,
 			dotCfg({
 				processor: (dotdata: DotData) => {
 					for (let i = dotdata.saved; i < dotdata.records.length; i++) {
@@ -89,12 +90,12 @@ describe("setup", () => {
 			})
 		);
 		dots.add(
-			dbname3,
+			dbname4,
 			recordFrom({
 				id: 1,
 			})
 		);
 		expect(called).toBe(2);
-		expect(ids).toBe(["1"]);
+		expect(ids).toStrictEqual(["1"]);
 	});
 });

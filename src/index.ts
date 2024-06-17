@@ -28,7 +28,7 @@ export function memoryPersister(): Persister {
 			mem.saved = mem.saved.concat(dotdata.records.slice(dotdata.saved));
 			dotdata.saved = mem.saved.length;
 		},
-		load: () => {
+		load: (): DotData => {
 			return {
 				saved: mem.saved.length,
 				records: mem.saved.concat([]),
@@ -38,16 +38,43 @@ export function memoryPersister(): Persister {
 	};
 }
 
-export function justCompress(dotdata: DotData) {}
+export function justCompress(_: DotData) {}
 
 export function recordFrom(o: any): Record {
-	return [];
+	return ["", "" + o.id];
+}
+
+type DotInfo = {
+	dotdata: DotData;
+	config: Config;
+};
+
+let DOTS: { [key: string]: DotInfo } = {};
+
+function add(dbname: string, record: Record): void {
+	const dotinfo = DOTS[dbname];
+	if (!dotinfo) throw new Error(`${dbname} not setup`);
+	dotinfo.dotdata.records.push(record);
+	dotinfo.config.processor(dotinfo.dotdata);
+}
+
+function setup(dbname: string, config: Config): void {
+	if (DOTS[dbname]) throw new Error(`${dbname} already set up`);
+	DOTS[dbname] = {
+		config,
+		dotdata: config.persister.load(),
+	};
+	config.processor(DOTS[dbname].dotdata);
+}
+
+function shutdown() {
+	DOTS = {};
 }
 
 const dots = {
-	setup: (dbname: string, config: Config): void => {},
-	add: (dbname: string, record: Record): void => {},
-	shutdown: (): void => {},
+	setup,
+	add,
+	shutdown,
 };
 
 export default dots;
