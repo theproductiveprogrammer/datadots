@@ -25,21 +25,35 @@ npm install datadots
 Use:
 
 ```javascript
-import dots { diskPersister, compressDuplicates } from "datadots";
+import dots { diskPersister } from "datadots";
 
 database1 = "/path/to/data1.db";
 
-dots.setup(database1, {
+const dot = await dots.setup(database1, {
     saveEvery: 10, // seconds
     persister: diskPersister(database1),
-    processor: compressDuplicates,
 });
 
-const datum = { id: typeid("type1"), key: value, key2: value2 };
-const record = dots.recordFrom(datum); // ["17Jun24222648+1000","type1_hdnq00zLSZNd","key","value","key2","value"]
-dots.add(database1, record);
-dots.q(database1, dotdata => {
-    console.log(`There are ${dotdata.records.length} records`);
-    console.log(`Of which, ${dotdata.saved} are persisted/saved`);
+```
+
+Add Record:
+
+```javascript
+const datum = { key: value, key2: value2 };
+dot.add(datum);
+```
+
+Query Records:
+
+```javascript
+dot.q((records) => {
+    console.log(`There are ${records.length} records`);
 });
+```
+
+Closing:
+
+```javascript
+await dot.close();
+await dots.shutdown();
 ```
