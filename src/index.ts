@@ -1,36 +1,41 @@
-export type Config = {
+export type Dot<T> = {
+	name: string;
+	add: (record: T) => void;
+	q: (cb: qCallBack<T>) => void;
+	close: () => Promise<void>;
+};
+
+export type Config<T> = {
 	saveEvery: number;
-	persister: Persister;
-	processor: Processor;
+	persister: Persister<T>;
+	optimizer?: Optimizer<T>;
 };
 
-export type Persister = {
-	save: (dotdata: DotData) => Promise<void>;
-	load: () => DotData;
+export type Persister<T> = {
+	save: (dotdata: DotData<T>) => Promise<void>;
+	load: () => Promise<DotData<T>>;
 };
 
-export type DotData = {
+export type Optimizer<T> = (dotdata: DotData<T>) => void;
+
+export type DotData<T> = {
 	saved: number;
-	records: Array<Record>;
+	records: Array<T>;
 	_rollover: boolean;
 };
 
-export type Record = Array<string>;
+export type qCallBack<T> = (records: Array<T>) => void;
 
-export type Processor = (dotdata: DotData) => void;
-
-export type qCallBack = (dotdata: DotData) => void;
-
-export function memoryPersister(): Persister {
+export function memoryPersister<T>(): Persister<T> {
 	const mem = {
-		saved: [] as Array<Record>,
+		saved: [] as Array<T>,
 	};
 	return {
-		save: async (dotdata: DotData) => {
+		save: async (dotdata: DotData<T>) => {
 			mem.saved = mem.saved.concat(dotdata.records.slice(dotdata.saved));
 			dotdata.saved = mem.saved.length;
 		},
-		load: (): DotData => {
+		load: async () => {
 			return {
 				saved: mem.saved.length,
 				records: mem.saved.concat([]),
@@ -40,19 +45,14 @@ export function memoryPersister(): Persister {
 	};
 }
 
-export function justCompress(_: DotData) {}
-
-export function recordFrom(o: any): Record {
-	return ["", "" + o.id];
-}
-
-type DotInfo = {
-	dotdata: DotData;
-	config: Config;
+type DotInfo<T> = {
+	dotdata: DotData<T>;
+	config: Config<T>;
+	writing: boolean;
 	lastwrite: number;
 };
 
-let DOTS: { [key: string]: DotInfo } = {};
+let DOTS: { [key: string]: DotInfo<any> } = {};
 let writer: any;
 
 async function write() {
@@ -62,45 +62,76 @@ async function write() {
 		const dotinfo = DOTS[keys[i]];
 		if (!dotinfo) continue;
 		if (now - dotinfo.lastwrite < dotinfo.config.saveEvery * 1000) continue;
-		await dotinfo.config.persister.save(dotinfo.dotdata);
+		await _write(dotinfo);
 	}
 	writer = setTimeout(write, 500);
 }
 
-function add(dbname: string, record: Record): void {
-	const dotinfo = DOTS[dbname];
-	if (!dotinfo) throw new Error(`${dbname} not setup`);
-	dotinfo.dotdata.records.push(record);
-	dotinfo.config.processor(dotinfo.dotdata);
+async function _write(dotinfo: DotInfo<any>): Promise<void> {
+	if (!dotinfo.writing) {
+		dotinfo.writing = true;
+		await dotinfo.config.persister.save(dotinfo.dotdata);
+		dotinfo.writing = false;
+	}
 }
 
-function setup(dbname: string, config: Config): void {
-	if (DOTS[dbname]) throw new Error(`${dbname} already set up`);
+async function setup<T>(dbname: string, config: Config<T>): Promise<Dot<T>> {
 	if (!writer) writer = setTimeout(write, 500);
+	if (DOTS[dbname]) throw new Error(`${dbname} already set up`);
+	const dotdata = await config.persister.load();
 	DOTS[dbname] = {
 		config,
-		dotdata: config.persister.load(),
+		dotdata,
+		writing: false,
 		lastwrite: Date.now(),
 	};
-	config.processor(DOTS[dbname].dotdata);
+	return dotFor<T>(dbname);
 }
 
-function shutdown() {
+async function shutdown(): Promise<void> {
 	if (writer) clearTimeout(writer);
 	writer = null;
+	const clear_ = DOTS;
 	DOTS = {};
+	for (let k in clear_) {
+		const dotinfo = DOTS[k];
+		if (!dotinfo) continue;
+		await _write(dotinfo);
+	}
 }
 
-function q(dbname: string, cb: qCallBack) {
+async function close(dbname: string): Promise<void> {
+	const dotinfo = DOTS[dbname];
+	if (dotinfo) {
+		delete DOTS[dbname];
+		await _write(dotinfo);
+	}
+}
+
+function dotFor<T>(dbname: string): Dot<T> {
+	return {
+		name: dbname,
+		add: (record: T) => add(dbname, record),
+		q: (cb: qCallBack<T>) => q(dbname, cb),
+		close: async () => close(dbname),
+	};
+}
+
+function add<T>(dbname: string, record: T): void {
+	const dotinfo = DOTS[dbname];
+	if (!dotinfo) throw new Error(`${dbname} not set up`);
+	dotinfo.dotdata.records.push(record);
+	if (dotinfo.config.optimizer) dotinfo.config.optimizer(dotinfo.dotdata);
+}
+
+function q<T>(dbname: string, cb: qCallBack<T>) {
 	const dotinfo = DOTS[dbname];
 	if (!dotinfo) throw new Error(`${dbname} not setup`);
-	cb(dotinfo.dotdata);
+	cb(dotinfo.dotdata.records);
 }
 
 const dots = {
 	setup,
-	add,
-	q,
 	shutdown,
 };
 

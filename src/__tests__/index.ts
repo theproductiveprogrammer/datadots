@@ -1,96 +1,57 @@
-import dots, {
-	Config,
-	recordFrom,
-	memoryPersister,
-	justCompress,
-	DotData,
-} from "../index";
+import dots, { DotData, memoryPersister } from "../index";
 
-function dotCfg(cfg?: any): Config {
-	const saveEvery = cfg?.saveEvery || 10;
-	const persister = cfg?.persister || memoryPersister();
-	const processor = cfg?.processor || justCompress;
-	return {
-		saveEvery,
-		persister,
-		processor,
-	};
-}
+type TestRec = {
+	id: number;
+};
+
+const memCfg = {
+	saveEvery: 10,
+	persister: memoryPersister<TestRec>(),
+};
 
 describe("setup", () => {
 	const dbname1 = "/tmp/dots/1.db";
-	it("throws exception if not set up", () => {
-		expect(() => dots.add(dbname1, recordFrom({ id: 1 }))).toThrow(
-			`${dbname1} not setup`
-		);
+	it("throws exception if shut down", async () => {
+		const dot = await dots.setup<TestRec>(dbname1, memCfg);
+		dot.close();
+		expect(() => dot.add({ id: 1 })).toThrow(`${dot.name} not set up`);
 	});
 
-	it("is ready when starting with empty data", () => {
+	it("is ready when starting with empty data", async () => {
 		let ready = false;
-		dots.setup(
-			dbname1,
-			dotCfg({
-				processor: (_: DotData) => {
-					ready = true;
-				},
-			})
-		);
+		const dot = await dots.setup<TestRec>(dbname1, memCfg);
+		dot.q((_) => (ready = true));
 		expect(ready).toBe(true);
 	});
 
 	const dbname2 = "/tmp/dots/2.db";
-	it("throws exception if set twice", () => {
-		dots.setup(dbname2, dotCfg());
-		expect(() => dots.setup(dbname2, dotCfg())).toThrow(
-			`${dbname2} already set up`
-		);
+	it("throws exception if setup twice", async () => {
+		const dot = await dots.setup(dbname2, memCfg);
+		await expect(async () => {
+			await dots.setup(dbname2, memCfg);
+		}).rejects.toThrow(`${dot.name} already set up`);
 	});
 
 	const dbname3 = "/tmp/dots/3.db";
-	it("is ready if shutdown in between", () => {
+	it("is ready if closed in between", async () => {
 		let ready = 0;
-		dots.setup(
-			dbname3,
-			dotCfg({
-				processor: (_: DotData) => {
-					ready++;
-				},
-			})
-		);
-		dots.shutdown();
-		dots.setup(
-			dbname3,
-			dotCfg({
-				processor: (_: DotData) => {
-					ready++;
-				},
-			})
-		);
+		let dot = await dots.setup(dbname3, memCfg);
+		dot.q((_) => ready++);
+		await dot.close();
+		dot = await dots.setup(dbname3, memCfg);
+		dot.q((_) => ready++);
 		expect(ready).toBe(2);
 	});
 
 	const dbname4 = "/tmp/dots/4.db";
-	it("to be ready and called with data when correctly set up", () => {
-		let called = 0;
-		const ids: Array<string> = [];
-		dots.setup(
-			dbname4,
-			dotCfg({
-				processor: (dotdata: DotData) => {
-					for (let i = dotdata.saved; i < dotdata.records.length; i++) {
-						ids.push(dotdata.records[i][1]);
-					}
-					called++;
-				},
-			})
-		);
-		dots.add(dbname4, recordFrom({ id: 1 }));
-		expect(called).toBe(2);
-		expect(ids).toStrictEqual(["1"]);
+	it("to be ready and called with data when correctly set up", async () => {
+		const ids: Array<number> = [];
+		const dot = await dots.setup<TestRec>(dbname4, memCfg);
+		dot.add({ id: 1 });
+		dot.q((recs) => recs.forEach((r) => ids.push(r.id)));
+		expect(ids).toStrictEqual([1]);
 		let numrecs = 0;
-		dots.q(dbname4, (dotdata) => {
-			numrecs = dotdata.records.length;
-		});
+		dot.q((recs) => (numrecs = recs.length));
 		expect(numrecs).toBe(1);
 	});
 });
@@ -98,13 +59,16 @@ describe("setup", () => {
 describe("saving", () => {
 	const dbname = "/tmp/dots/1.db";
 	it("save after 1 second", async () => {
-		dots.setup(dbname, dotCfg({ saveEvery: 1 }));
-		dots.add(dbname, recordFrom({ id: 1 }));
 		let numsaved = 0;
-		dots.q(dbname, (dotdata) => (numsaved = dotdata.saved));
+		const dot = await dots.setup(dbname, {
+			saveEvery: 1,
+			persister: memoryPersister<TestRec>(),
+			optimizer: (dotdata: DotData<TestRec>) => (numsaved = dotdata.saved),
+		});
+		dot.add({ id: 1 });
 		expect(numsaved).toBe(0);
 		await new Promise((r) => setTimeout(r, 1500));
-		dots.q(dbname, (dotdata) => (numsaved = dotdata.saved));
+		dot.add({ id: 1 });
 		expect(numsaved).toBe(1);
 	});
 });
