@@ -30,8 +30,8 @@ import dots { diskPersister } from "datadots";
 database1 = "/path/to/data1.db";
 
 const dot = await dots.setup(database1, {
-    saveEvery: 10, // seconds
-    persister: diskPersister(database1),
+    saveEvery: 5, // seconds
+    persister: diskPersister(),
 });
 
 ```
