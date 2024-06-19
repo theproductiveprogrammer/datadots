@@ -1,6 +1,5 @@
 import dots, { diskPersister, memoryPersister, DotData } from "../index";
-import { readFile, unlink, readdir, stat } from "node:fs/promises";
-import { join as pathJoin } from "node:path";
+import { rm, readFile, stat } from "node:fs/promises";
 import AdmZip from "adm-zip";
 
 const ROOT_TEST_FOLDER = "/tmp/dots";
@@ -11,17 +10,13 @@ function testdb(n?: number | string) {
 
 async function cleanup() {
 	try {
-		const dbs = await readdir(ROOT_TEST_FOLDER);
-		for (let db of dbs) {
-			db = pathJoin(ROOT_TEST_FOLDER, db);
-			const s = await stat(db);
-			if (s.isFile()) {
-				console.log(`removing ${db}`);
-				await unlink(db);
-			}
+		await rm(ROOT_TEST_FOLDER, { recursive: true });
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			/* ignore */
+		} else {
+			throw err;
 		}
-	} catch (_) {
-		/* ignore */
 	}
 }
 
@@ -251,6 +246,7 @@ got: ${r}
 				throw new Error(msg);
 			}
 		}
+		expect(recs).toStrictEqual(zfile.lines);
 	});
 
 	await dot.close();
