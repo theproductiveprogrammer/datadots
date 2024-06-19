@@ -1,9 +1,10 @@
 import dots, { DotData, memoryPersister, diskPersister } from "../index";
 import { unlink, readdir, stat, readFile } from "node:fs/promises";
 import { join as pathJoin } from "node:path";
+import AdmZip from "adm-zip";
 
 const ROOT_TEST_FOLDER = "/tmp/dots";
-function testdb(n?: number) {
+function testdb(n?: number | string) {
 	if (!n) n = Math.floor(Math.random() * 100) + 1;
 	return `${ROOT_TEST_FOLDER}/${n}`;
 }
@@ -138,8 +139,46 @@ describe("saving", () => {
 		ids = [];
 		dot.q((recs) => recs.forEach((r) => ids.push(r.id)));
 		expect(ids).toStrictEqual([1, 2, 11]);
-		await cleanup();
 	});
+
+	it(
+		"persists correctly after repeated save cycles",
+		async () => {
+			await cleanup();
+			let numrecs = 0;
+			let ids: Array<number> = [];
+			let dot = await dots.setup<TestRec>(testdb(), {
+				saveEvery: 1,
+				persister: diskPersister<TestRec>(),
+			});
+			dot.add({ id: 1 });
+			dot.q((recs) => (ids = recs.map((r) => r.id)));
+			expect(ids).toStrictEqual([1]);
+			await new Promise((r) => setTimeout(r, 1500));
+			dot.add({ id: 2 });
+			dot.q((recs) => (ids = recs.map((r) => r.id)));
+			expect(ids).toStrictEqual([1, 2]);
+			await new Promise((r) => setTimeout(r, 1500));
+			dot.add({ id: 3 });
+			dot.add({ id: 4 });
+			await new Promise((r) => setTimeout(r, 1500));
+			dot.q((recs) => (ids = recs.map((r) => r.id)));
+			expect(ids).toStrictEqual([1, 2, 3, 4]);
+			dot.add({ id: 5 });
+			dot.q((recs) => (ids = recs.map((r) => r.id)));
+			expect(ids).toStrictEqual([1, 2, 3, 4, 5]);
+			await dot.close();
+			dot = await dots.setup<TestRec>(dot.name, {
+				saveEvery: 1,
+				persister: diskPersister<TestRec>(),
+			});
+			dot.q((recs) => (numrecs = recs.length));
+			expect(numrecs).toBe(5);
+			dot.q((recs) => (ids = recs.map((r) => r.id)));
+			expect(ids).toStrictEqual([1, 2, 3, 4, 5]);
+		},
+		10 * 1000
+	);
 
 	it("persists raw", async () => {
 		await cleanup();
@@ -166,10 +205,112 @@ describe("saving", () => {
 		expect(ids).toStrictEqual(["one", "two", "three"]);
 		await dot.close();
 		const data = await readFile(dot.name, "utf8");
-		expect(data).toStrictEqual("one\ntwo\nthree\n");
-		await cleanup();
+		expect(data).toStrictEqual("one\ntwo\nthree");
 	});
 });
+
+type ZFile = {
+	name: string;
+	data: string;
+	lines: Array<string>;
+};
+
+async function testZFile(zfile: ZFile): Promise<void> {
+	let dot = await load_dot_1();
+	for (let i = 0; i < zfile.lines.length; i++) {
+		const l = zfile.lines[i];
+
+		if (Math.random() < 0.00001) {
+			console.log(`re-opening ${zfile.name}`);
+			await dot.close();
+			dot = await load_dot_1();
+		}
+
+		if (Math.random() < 0.00005) {
+			await new Promise((r) => setTimeout(r, 100));
+		}
+
+		dot.add(l);
+	}
+
+	if (Math.random() < 0.5) {
+		await dot.close();
+		dot = await load_dot_1();
+	}
+
+	dot.q((recs) => {
+		for (let i = 0; i < zfile.lines.length; i++) {
+			const r = recs[i];
+			const z = zfile.lines[i];
+			if (r !== z) {
+				const msg = `
+not matching: ${zfile.name} line: ${i + 1}
+expected: ${z}
+got: ${r}
+`.trim();
+				throw new Error(msg);
+			}
+		}
+		//expect(recs).toStrictEqual(zfile.lines);
+	});
+
+	await dot.close();
+
+	async function load_dot_1() {
+		return await dots.setup(testdb(zfile.name), {
+			saveEvery: Math.floor(Math.random() * 5) + 1,
+			persister: diskPersister(),
+		});
+	}
+}
+
+describe("load testing", () => {
+	it(
+		"can handle lots of files with of lines",
+		async () => {
+			await cleanup();
+			const files = await loadTestFiles();
+			const promises: Array<Promise<void>> = files.map(testZFile);
+			for (let i = 0; i < promises.length; i++) {
+				const p = promises[i];
+				await p;
+			}
+		},
+		30 * 60 * 1000
+	);
+});
+
+const TEST_FILES = "test-files.zip";
+async function loadTestFiles(): Promise<Array<ZFile>> {
+	try {
+		const s = await stat(TEST_FILES);
+		if (!s.isFile()) return [];
+		const zip = new AdmZip(TEST_FILES);
+		const zfiles = zip
+			.getEntries()
+			.filter((zipEntry) => {
+				return (
+					!(
+						zipEntry.entryName.startsWith("__") ||
+						zipEntry.entryName.startsWith(".")
+					) && zipEntry.entryName.endsWith(".txt")
+				);
+			})
+			.map((zipEntry) => {
+				const zfile: ZFile = {
+					name: zipEntry.entryName,
+					data: zipEntry.getData().toString("utf8"),
+					lines: [],
+				};
+				zfile.lines = zfile.data.split("\n");
+				return zfile;
+			});
+		return zfiles;
+	} catch (err) {
+		//console.warn(`could not open ${TEST_FILES}`);
+	}
+	return [];
+}
 
 afterEach(() => {
 	dots.shutdown();

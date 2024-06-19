@@ -52,14 +52,19 @@ export function diskPersister<T>(
 ): Persister<T> {
 	return {
 		save: async (dbname: string, dotdata: DotData<T>) => {
-			if (dotdata.records.length === 0) return;
+			if (dotdata.records.length <= dotdata.saved) return;
 			const loc = dirname(dbname);
 			if (loc !== "/") await mkdir(loc, { recursive: true });
 			let data = "";
 			let i = dotdata.saved;
 			for (; i < dotdata.records.length; i++) {
-				if (o.raw) data += dotdata.records[i] + "\n";
-				else data += JSON.stringify(dotdata.records[i]) + "\n";
+				if (!i) {
+					if (o.raw) data += dotdata.records[i];
+					else data += JSON.stringify(dotdata.records[i]);
+				} else {
+					if (o.raw) data += "\n" + dotdata.records[i];
+					else data += "\n" + JSON.stringify(dotdata.records[i]);
+				}
 			}
 			if (data) {
 				try {
@@ -130,11 +135,13 @@ async function write() {
 }
 
 async function _write(dotinfo: DotInfo<any>): Promise<void> {
-	if (!dotinfo.writing) {
-		dotinfo.writing = true;
-		await dotinfo.config.persister.save(dotinfo.name, dotinfo.dotdata);
-		dotinfo.writing = false;
+	while (dotinfo.writing) {
+		await new Promise((r) => setTimeout(r, 1));
 	}
+
+	dotinfo.writing = true;
+	await dotinfo.config.persister.save(dotinfo.name, dotinfo.dotdata);
+	dotinfo.writing = false;
 }
 
 async function setup<T>(dbname: string, config: Config<T>): Promise<Dot<T>> {

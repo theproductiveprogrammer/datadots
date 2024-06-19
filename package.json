@@ -10,7 +10,11 @@
 		"type": "git",
 		"url": "git+https://github.com/theproductiveprogrammer/datadots.git"
 	},
-	"keywords": ["database", "json", "nldjson"],
+	"keywords": [
+		"database",
+		"json",
+		"nldjson"
+	],
 	"author": "charles.lobo@gmail.com",
 	"license": "UNLICENSED",
 	"bugs": {
@@ -18,7 +22,9 @@
 	},
 	"homepage": "https://github.com/theproductiveprogrammer/datadots#readme",
 	"devDependencies": {
+		"@types/adm-zip": "^0.5.5",
 		"@types/jest": "^29.5.12",
+		"adm-zip": "^0.5.14",
 		"jest": "^29.7.0",
 		"ts-jest": "^29.1.4",
 		"ts-node": "^10.9.2",
