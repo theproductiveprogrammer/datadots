@@ -59,8 +59,8 @@ export function diskPersister<T>(
 			let i = dotdata.saved;
 			for (; i < dotdata.records.length; i++) {
 				if (!i) {
-					if (o.raw) data += dotdata.records[i];
-					else data += JSON.stringify(dotdata.records[i]);
+					if (o.raw) data = dotdata.records[i] as string;
+					else data = JSON.stringify(dotdata.records[i]);
 				} else {
 					if (o.raw) data += "\n" + dotdata.records[i];
 					else data += "\n" + JSON.stringify(dotdata.records[i]);
@@ -120,6 +120,7 @@ type DotInfo<T> = {
 
 let DOTS: { [key: string]: DotInfo<any> } = {};
 let writer: any;
+let stopped = false;
 
 const WRITE_EVERY = 500;
 async function write() {
@@ -131,21 +132,29 @@ async function write() {
 		if (now - dotinfo.lastwrite < dotinfo.config.saveEvery * 1000) continue;
 		await _write(dotinfo);
 	}
-	writer = setTimeout(write, WRITE_EVERY);
+	if (!stopped) writer = setTimeout(write, WRITE_EVERY);
 }
 
 async function _write(dotinfo: DotInfo<any>): Promise<void> {
-	while (dotinfo.writing) {
-		await new Promise((r) => setTimeout(r, 1));
+	if (dotinfo.writing) {
+		while (dotinfo.writing) {
+			await new Promise((r) => setTimeout(r, 1));
+		}
+		return;
 	}
 
 	dotinfo.writing = true;
-	await dotinfo.config.persister.save(dotinfo.name, dotinfo.dotdata);
-	dotinfo.writing = false;
+	try {
+		await dotinfo.config.persister.save(dotinfo.name, dotinfo.dotdata);
+		dotinfo.lastwrite = Date.now(); // Update the last write time after successful save
+	} finally {
+		dotinfo.writing = false;
+	}
 }
 
 async function setup<T>(dbname: string, config: Config<T>): Promise<Dot<T>> {
 	if (config.saveEvery <= 0) config.saveEvery = 1;
+	if (stopped) stopped = false;
 	if (!writer) writer = setTimeout(write, WRITE_EVERY);
 	if (DOTS[dbname]) throw new Error(`${dbname} already set up`);
 	const dotdata = await config.persister.load(dbname);
@@ -162,6 +171,7 @@ async function setup<T>(dbname: string, config: Config<T>): Promise<Dot<T>> {
 async function shutdown(): Promise<void> {
 	if (writer) clearTimeout(writer);
 	writer = null;
+	stopped = true;
 	const clear_ = DOTS;
 	DOTS = {};
 	for (let k in clear_) {
@@ -184,7 +194,7 @@ function dotFor<T>(dbname: string): Dot<T> {
 		name: dbname,
 		add: (record: T) => add(dbname, record),
 		q: (cb: qCallBack<T>) => q(dbname, cb),
-		close: async () => close(dbname),
+		close: async () => await close(dbname),
 	};
 }
 

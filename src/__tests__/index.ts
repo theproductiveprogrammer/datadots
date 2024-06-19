@@ -1,5 +1,5 @@
-import dots, { DotData, memoryPersister, diskPersister } from "../index";
-import { unlink, readdir, stat, readFile } from "node:fs/promises";
+import dots, { diskPersister, memoryPersister, DotData } from "../index";
+import { readFile, unlink, readdir, stat } from "node:fs/promises";
 import { join as pathJoin } from "node:path";
 import AdmZip from "adm-zip";
 
@@ -37,7 +37,7 @@ const memCfg = {
 describe("setup", () => {
 	it("throws exception if shut down", async () => {
 		const dot = await dots.setup<TestRec>(testdb(), memCfg);
-		dot.close();
+		await dot.close();
 		expect(() => dot.add({ id: 1 })).toThrow(`${dot.name} not set up`);
 	});
 
@@ -251,7 +251,6 @@ got: ${r}
 				throw new Error(msg);
 			}
 		}
-		//expect(recs).toStrictEqual(zfile.lines);
 	});
 
 	await dot.close();
@@ -312,6 +311,6 @@ async function loadTestFiles(): Promise<Array<ZFile>> {
 	return [];
 }
 
-afterEach(() => {
-	dots.shutdown();
+afterEach(async () => {
+	await dots.shutdown();
 });
