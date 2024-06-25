@@ -1,5 +1,3 @@
-import { appendFile, readFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
 export type Dot<T> = {
 	name: string;
 	add: (record: T) => void;
@@ -28,6 +26,33 @@ export type DotData<T> = {
 
 export type qCallBack<T> = (records: Array<T>) => void;
 
+
+export function browserPersister<T>(): Persister<T> {
+	const mem = {
+		saved: [] as Array<T>,
+	};
+	return {
+		save: async (dbname: string, dotdata: DotData<T>) => {
+			mem.saved = mem.saved.concat(dotdata.records.slice(dotdata.saved));
+			dotdata.saved = mem.saved.length;
+			localStorage.setItem(dbname, JSON.stringify(mem.saved));
+		},
+		load: async (dbname: string) => {
+			const data = localStorage.getItem(dbname);
+			try {
+				if(data) mem.saved = JSON.parse(data);
+			} catch(e) {
+				console.error(e);
+			}
+			return {
+				saved: mem.saved.length,
+				records: mem.saved.concat([]),
+				_rollover: false,
+			};
+		},
+	};
+}
+
 export function memoryPersister<T>(): Persister<T> {
 	const mem = {
 		saved: [] as Array<T>,
@@ -47,68 +72,6 @@ export function memoryPersister<T>(): Persister<T> {
 	};
 }
 
-export function diskPersister<T>(
-	o: { raw: boolean } = { raw: false }
-): Persister<T> {
-	return {
-		save: async (dbname: string, dotdata: DotData<T>) => {
-			if (dotdata.records.length <= dotdata.saved) return;
-			const loc = dirname(dbname);
-			if (loc !== "/") await mkdir(loc, { recursive: true });
-			let data = "";
-			let i = dotdata.saved;
-			for (; i < dotdata.records.length; i++) {
-				if (!i) {
-					if (o.raw) data = dotdata.records[i] as string;
-					else data = JSON.stringify(dotdata.records[i]);
-				} else {
-					if (o.raw) data += "\n" + dotdata.records[i];
-					else data += "\n" + JSON.stringify(dotdata.records[i]);
-				}
-			}
-			if (data) {
-				try {
-					await appendFile(dbname, data);
-					dotdata.saved = i;
-				} catch (err) {
-					console.error(`error saving ${dbname}`, err);
-				}
-			}
-		},
-		load: async (dbname: string) => {
-			const ret: DotData<T> = {
-				saved: 0,
-				records: [],
-				_rollover: false,
-			};
-			try {
-				const data = await readFile(dbname, "utf8");
-				if (data) {
-					const lines = data.split("\n");
-					if (o.raw) {
-						ret.records = lines as Array<T>;
-						if (ret.records.length && !ret.records[ret.records.length - 1]) {
-							/* remove last blank */
-							ret.records.pop();
-						}
-					} else {
-						lines.forEach((l) => {
-							l = l.trim();
-							if (!l) return;
-							ret.records.push(JSON.parse(l));
-						});
-					}
-					ret.saved = ret.records.length;
-				}
-			} catch (err: any) {
-				if (err.code !== "ENOENT") {
-					console.error(err);
-				}
-			}
-			return ret;
-		},
-	};
-}
 
 type DotInfo<T> = {
 	name: string;

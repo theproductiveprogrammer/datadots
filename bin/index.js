@@ -1,9 +1,31 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.diskPersister = exports.memoryPersister = void 0;
-const promises_1 = require("node:fs/promises");
-const node_path_1 = require("node:path");
-function memoryPersister() {
+export function browserPersister() {
+    const mem = {
+        saved: [],
+    };
+    return {
+        save: async (dbname, dotdata) => {
+            mem.saved = mem.saved.concat(dotdata.records.slice(dotdata.saved));
+            dotdata.saved = mem.saved.length;
+            localStorage.setItem(dbname, JSON.stringify(mem.saved));
+        },
+        load: async (dbname) => {
+            const data = localStorage.getItem(dbname);
+            try {
+                if (data)
+                    mem.saved = JSON.parse(data);
+            }
+            catch (e) {
+                console.error(e);
+            }
+            return {
+                saved: mem.saved.length,
+                records: mem.saved.concat([]),
+                _rollover: false,
+            };
+        },
+    };
+}
+export function memoryPersister() {
     const mem = {
         saved: [],
     };
@@ -21,79 +43,6 @@ function memoryPersister() {
         },
     };
 }
-exports.memoryPersister = memoryPersister;
-function diskPersister(o = { raw: false }) {
-    return {
-        save: async (dbname, dotdata) => {
-            if (dotdata.records.length <= dotdata.saved)
-                return;
-            const loc = (0, node_path_1.dirname)(dbname);
-            if (loc !== "/")
-                await (0, promises_1.mkdir)(loc, { recursive: true });
-            let data = "";
-            let i = dotdata.saved;
-            for (; i < dotdata.records.length; i++) {
-                if (!i) {
-                    if (o.raw)
-                        data = dotdata.records[i];
-                    else
-                        data = JSON.stringify(dotdata.records[i]);
-                }
-                else {
-                    if (o.raw)
-                        data += "\n" + dotdata.records[i];
-                    else
-                        data += "\n" + JSON.stringify(dotdata.records[i]);
-                }
-            }
-            if (data) {
-                try {
-                    await (0, promises_1.appendFile)(dbname, data);
-                    dotdata.saved = i;
-                }
-                catch (err) {
-                    console.error(`error saving ${dbname}`, err);
-                }
-            }
-        },
-        load: async (dbname) => {
-            const ret = {
-                saved: 0,
-                records: [],
-                _rollover: false,
-            };
-            try {
-                const data = await (0, promises_1.readFile)(dbname, "utf8");
-                if (data) {
-                    const lines = data.split("\n");
-                    if (o.raw) {
-                        ret.records = lines;
-                        if (ret.records.length && !ret.records[ret.records.length - 1]) {
-                            /* remove last blank */
-                            ret.records.pop();
-                        }
-                    }
-                    else {
-                        lines.forEach((l) => {
-                            l = l.trim();
-                            if (!l)
-                                return;
-                            ret.records.push(JSON.parse(l));
-                        });
-                    }
-                    ret.saved = ret.records.length;
-                }
-            }
-            catch (err) {
-                if (err.code !== "ENOENT") {
-                    console.error(err);
-                }
-            }
-            return ret;
-        },
-    };
-}
-exports.diskPersister = diskPersister;
 let DOTS = {};
 let writer;
 let stopped = false;
@@ -194,4 +143,4 @@ const dots = {
     setup,
     shutdown,
 };
-exports.default = dots;
+export default dots;

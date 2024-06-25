@@ -20,10 +20,8 @@ export type DotData<T> = {
     _rollover: boolean;
 };
 export type qCallBack<T> = (records: Array<T>) => void;
+export declare function browserPersister<T>(): Persister<T>;
 export declare function memoryPersister<T>(): Persister<T>;
-export declare function diskPersister<T>(o?: {
-    raw: boolean;
-}): Persister<T>;
 declare function setup<T>(dbname: string, config: Config<T>): Promise<Dot<T>>;
 declare function shutdown(): Promise<void>;
 declare const dots: {

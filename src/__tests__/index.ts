@@ -1,4 +1,5 @@
-import dots, { diskPersister, memoryPersister, DotData } from "../index";
+import dots, { memoryPersister, DotData } from "../index";
+import diskPersister from "../diskpersister";
 import { rm, readFile, stat } from "node:fs/promises";
 import AdmZip from "adm-zip";
 
