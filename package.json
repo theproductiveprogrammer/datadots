@@ -4,6 +4,7 @@
 	"description": "Store data records in separate JSON data \"dots\"",
 	"main": "bin/index.js",
 	"types": "bin/index.d.ts",
+	"type": "module",
 	"scripts": {
 		"build": "tsc",
 		"test": "jest --silent=false"
