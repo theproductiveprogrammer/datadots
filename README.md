@@ -25,13 +25,12 @@ npm install datadots
 Use:
 
 ```javascript
-import dots { diskPersister } from "datadots";
+import dots, { memoryPersister, browserPersister } from "datadots";
+import diskPersister from "datadots/diskPersister";
 
-database1 = "/path/to/data1.db";
-
-const dot = await dots.setup(database1, {
+const dot = await dots.setup("/path/to/datafile", {
     saveEvery: 5, // seconds
-    persister: diskPersister(),
+    persister: diskPersister(), // or memoryPersister or browserPersister or your own
 });
 
 ```
