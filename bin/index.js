@@ -1,25 +1,21 @@
 export function browserPersister() {
-    const mem = {
-        saved: [],
-    };
     return {
         save: async (dbname, dotdata) => {
-            mem.saved = mem.saved.concat(dotdata.records.slice(dotdata.saved));
-            dotdata.saved = mem.saved.length;
-            localStorage.setItem(dbname, JSON.stringify(mem.saved));
+            localStorage.setItem(dbname, JSON.stringify(dotdata));
         },
         load: async (dbname) => {
             const data = localStorage.getItem(dbname);
+            let records = [];
             try {
                 if (data)
-                    mem.saved = JSON.parse(data);
+                    records = JSON.parse(data);
             }
             catch (e) {
                 console.error(e);
             }
             return {
-                saved: mem.saved.length,
-                records: mem.saved.concat([]),
+                saved: 0,
+                records: records,
                 _rollover: false,
             };
         },

@@ -1,6 +1,6 @@
 {
 	"name": "datadots",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"description": "Store data records in separate JSON data \"dots\"",
 	"main": "bin/index.js",
 	"types": "bin/index.d.ts",
