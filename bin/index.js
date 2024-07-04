@@ -2,6 +2,7 @@ export function browserPersister() {
     return {
         save: async (dbname, dotdata) => {
             localStorage.setItem(dbname, JSON.stringify(dotdata.records));
+            dotdata.saved = dotdata.records.length;
         },
         load: async (dbname) => {
             const data = localStorage.getItem(dbname);
@@ -14,7 +15,7 @@ export function browserPersister() {
                 console.error(e);
             }
             return {
-                saved: 0,
+                saved: records.length,
                 records: records,
                 _rollover: false,
             };
