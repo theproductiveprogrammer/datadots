@@ -66,7 +66,9 @@ async function _write(dotinfo) {
     }
     dotinfo.writing = true;
     try {
-        await dotinfo.config.persister.save(dotinfo.name, dotinfo.dotdata);
+        if (dotinfo.dotdata.records.length > dotinfo.dotdata.saved) {
+            await dotinfo.config.persister.save(dotinfo.name, dotinfo.dotdata);
+        }
         dotinfo.lastwrite = Date.now(); // Update the last write time after successful save
     }
     finally {
