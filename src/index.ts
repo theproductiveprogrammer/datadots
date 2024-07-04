@@ -30,7 +30,7 @@ export type qCallBack<T> = (records: Array<T>) => void;
 export function browserPersister<T>(): Persister<T> {
 	return {
 		save: async (dbname: string, dotdata: DotData<T>) => {
-			localStorage.setItem(dbname, JSON.stringify(dotdata));
+			localStorage.setItem(dbname, JSON.stringify(dotdata.records));
 		},
 		load: async (dbname: string) => {
 			const data = localStorage.getItem(dbname);
