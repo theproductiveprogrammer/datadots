@@ -1,7 +1,7 @@
 export function browserPersister() {
     return {
         save: async (dbname, dotdata) => {
-            localStorage.setItem(dbname, JSON.stringify(dotdata));
+            localStorage.setItem(dbname, JSON.stringify(dotdata.records));
         },
         load: async (dbname) => {
             const data = localStorage.getItem(dbname);
