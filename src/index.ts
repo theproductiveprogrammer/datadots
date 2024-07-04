@@ -31,6 +31,7 @@ export function browserPersister<T>(): Persister<T> {
 	return {
 		save: async (dbname: string, dotdata: DotData<T>) => {
 			localStorage.setItem(dbname, JSON.stringify(dotdata.records));
+			dotdata.saved = dotdata.records.length;
 		},
 		load: async (dbname: string) => {
 			const data = localStorage.getItem(dbname);
@@ -41,7 +42,7 @@ export function browserPersister<T>(): Persister<T> {
 				console.error(e);
 			}
 			return {
-				saved: 0,
+				saved: records.length,
 				records: records,
 				_rollover: false,
 			};
