@@ -28,24 +28,21 @@ export type qCallBack<T> = (records: Array<T>) => void;
 
 
 export function browserPersister<T>(): Persister<T> {
-	const mem = {
-		inbrowser: [] as Array<T>,
-	};
 	return {
 		save: async (dbname: string, dotdata: DotData<T>) => {
-			mem.inbrowser = mem.inbrowser.concat(dotdata.records.slice(dotdata.saved));
-			localStorage.setItem(dbname, JSON.stringify(mem.inbrowser));
+			localStorage.setItem(dbname, JSON.stringify(dotdata));
 		},
 		load: async (dbname: string) => {
 			const data = localStorage.getItem(dbname);
+			let records = [];
 			try {
-				if(data) mem.inbrowser = JSON.parse(data);
+				if(data) records = JSON.parse(data);
 			} catch(e) {
 				console.error(e);
 			}
 			return {
 				saved: 0,
-				records: mem.inbrowser.concat([]),
+				records: records,
 				_rollover: false,
 			};
 		},
